@@ -52,7 +52,6 @@ class CypherFinder:
         corpus_broken_down = self.break_up_paragraphs_into_sentences(self.break_up_body_into_paragraphs(corpus_data))
 
         encrypted_corpus_pair_list = []
-        threads = []
         with open(self.encrypted_file_path) as encrypted_reader:
             for encrypted_line in encrypted_reader:
                 for corpus_paragraph in corpus_broken_down:
