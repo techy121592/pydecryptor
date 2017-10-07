@@ -1,3 +1,4 @@
-A random body of text. Hello, world! Some more random text.
+A random body of text. Alice said, "Hello,
+        world!" Some more random text.
 
 And here's a second paragraph.

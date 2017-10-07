@@ -5,11 +5,16 @@ class CypherFinder:
     def trim_sentence(self, sentence):
         return sentence.strip()
 
-    def break_up_paragraph_into_sentences(self, paragraph):
-        return list(map(self.trim_sentence, paragraph.replace('.', '.. ').replace('?', '?. ').replace('!', '!. ').split('. ')))
+    def break_up_paragraph_into_clean_sentences(self, paragraph):
+        clean_paragraph = paragraph.replace('\n', ' ').replace('\r', ' ')
+        for word in paragraph.split():
+            clean_paragraph = clean_paragraph + ' ' + word
+
+        clean_paragraph = clean_paragraph.replace('. ', '.. ').replace('?', '?. ').replace('!', '!. ').replace('"', '". ').strip('."').strip('..').strip(' .')
+        return list(map(self.trim_sentence, clean_paragraph.split('. ')))
 
     def break_up_paragraphs_into_sentences(self, paragraphs):
-        return list(map(self.break_up_paragraph_into_sentences, paragraphs))
+        return list(map(self.break_up_paragraph_into_clean_sentences, paragraphs))
 
     def break_up_body_into_paragraphs(self, body):
         return body.split('\n\n')
@@ -33,9 +38,8 @@ class CypherFinder:
                 list_of_numbers = []
         return list_of_lists_of_numbers
 
-    def compare_lines(self, encrypted_line, corpus_line):
-        output = self.replace_letters_with_numbers(encrypted_line) == self.replace_letters_with_numbers(corpus_line)
-        return output
+    def compare_numeric_lines(self, numeric_encrypted_line, numeric_corpus_line):
+        return numeric_encrypted_line == numeric_corpus_line
 
     def generate_cypher_from_encrypted_corpus_pairs(self, encrypted_corpus_pair_list):
         cypher = {}
@@ -54,9 +58,33 @@ class CypherFinder:
         encrypted_corpus_pair_list = []
         with open(self.encrypted_file_path) as encrypted_reader:
             for encrypted_line in encrypted_reader:
+                encrypted_line = encrypted_line.strip()
+                if encrypted_line == '':
+                    continue
+
+                numeric_encrypted_line = self.replace_letters_with_numbers(encrypted_line)
+                found_match = False
                 for corpus_paragraph in corpus_broken_down:
                     for corpus_sentence in corpus_paragraph:
-                        if self.compare_lines(encrypted_line, corpus_sentence):
-                            encrypted_corpus_pair_list.append((encrypted_line, corpus_sentence))
+                        if len(corpus_sentence.strip()) <= 1:
+                            continue
 
-        return self.generate_cypher_from_encrypted_corpus_pairs(encrypted_corpus_pair_list)
+                        numeric_corpus_line = self.replace_letters_with_numbers(corpus_sentence)
+                        print(encrypted_line)
+                        print(corpus_sentence)
+                        print(numeric_encrypted_line)
+                        print(numeric_corpus_line)
+                        if self.compare_numeric_lines(numeric_encrypted_line, numeric_corpus_line):
+                            encrypted_corpus_pair_list.append((encrypted_line, corpus_sentence))
+                            found_match = True
+                        if found_match:
+                            break
+                    if found_match:
+                        break
+                if not found_match:
+                    print('Couldn\'t match sentence... :(')
+
+        if len(encrypted_corpus_pair_list) > 0:
+            return self.generate_cypher_from_encrypted_corpus_pairs(encrypted_corpus_pair_list)
+        else:
+            print('Did\'t find any matches!!!!')
