@@ -11,8 +11,10 @@ def find_and_print_cypher_and_decrypted_lines(corpus_path, encrypted_path, print
     decrypter = Decrypter(cypher)
 
     if print_decrypted or verbose:
-        for line in encrypted_path:
-            print(decrypter.decrypt(line))
+        with open(encrypted_path) as encrypted_file:
+            for line in encrypted_file:
+                print(line)
+                print(decrypter.decrypt(line))
 
     if print_cypher or verbose:
         for _, v in enumerate(cypher):
