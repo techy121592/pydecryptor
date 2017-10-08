@@ -5,7 +5,7 @@ class Decrypter:
 
     def swap_letters(self, letter):
         try:
-            return self.cypher[letter]
+            return self.cypher[letter.lower()]
         except:
             return letter
 

@@ -1,90 +1,75 @@
+import random
+from decrypter import Decrypter
+
 class CypherFinder:
     def __init__(self, corpus_path, encrypted_file_path):
         self.corpus_path, self.encrypted_file_path = corpus_path, encrypted_file_path
+        self.alphabet = list('abcdefghijklmnopqrstuvwxyz')
+        self.previous_cyphers = []
+        self.current_cypher = {}
+        for letter in self.alphabet:
+            self.current_cypher[letter] = letter
 
-    def trim_sentence(self, sentence):
-        return sentence.strip()
-
-    def break_up_paragraph_into_clean_sentences(self, paragraph):
-        clean_paragraph = paragraph.replace('\n', ' ').replace('\r', ' ')
-        for word in paragraph.split():
-            clean_paragraph = clean_paragraph + ' ' + word
-
-        clean_paragraph = clean_paragraph.replace('. ', '.. ').replace('?', '?. ').replace('!', '!. ').replace('"', '". ').strip('."').strip('..').strip(' .')
-        return list(map(self.trim_sentence, clean_paragraph.split('. ')))
-
-    def break_up_paragraphs_into_sentences(self, paragraphs):
-        return list(map(self.break_up_paragraph_into_clean_sentences, paragraphs))
-
-    def break_up_body_into_paragraphs(self, body):
-        return body.split('\n\n')
-
-    def replace_letters_with_numbers(self, line):
-        key = {}
-        next_number = 0
-        list_of_lists_of_numbers = []
-        list_of_numbers = []
-        for letter in list(line):
+    def remove_non_alpha(self, input):
+        output = ''
+        for letter in list(input):
             if letter.isalpha():
-                letter_value: int
-                try:
-                    letter_value = key[letter]
-                except:
-                    key[letter], letter_value, next_number = next_number, next_number, next_number + 1
-                finally:
-                    list_of_numbers.append(letter_value)
-            elif len(list_of_numbers) > 0:
-                list_of_lists_of_numbers.append(list_of_numbers)
-                list_of_numbers = []
-        return list_of_lists_of_numbers
+                output = output + letter
+            else:
+                output = output + ' '
+        return output
 
-    def compare_numeric_lines(self, numeric_encrypted_line, numeric_corpus_line):
-        return numeric_encrypted_line == numeric_corpus_line
+    def swap(self, letter1, letter2):
+        self.current_cypher[letter1], self.current_cypher[letter2] = self.current_cypher[letter2], self.current_cypher[letter1]
 
-    def generate_cypher_from_encrypted_corpus_pairs(self, encrypted_corpus_pair_list):
-        cypher = {}
-        for encrypted_line, corpus_line in encrypted_corpus_pair_list:
-            for encrypted_letter, corpus_letter in zip(encrypted_line, corpus_line):
-                cypher[encrypted_letter] = corpus_letter
-        return cypher
+    def get_next_cypher(self):
+        self.previous_cyphers.append(self.current_cypher.copy())
+
+        while self.current_cypher in self.previous_cyphers:
+            self.swap(random.choice(self.alphabet), random.choice(self.alphabet))
+
+    def get_words_from_file_data(self, file_data):
+        return list(map(self.remove_non_alpha, file_data.split()))
+
+    def check_if_cypher_works(self):
+        decrypter = Decrypter(self.current_cypher)
+        for encrypted_word in self.bag_of_encrypted_words:
+            if not decrypter.decrypt(self.remove_non_alpha(encrypted_word)) in self.bag_of_words:
+                return False
+        return True
+
+    def remove_duplicate_words(self, bag_of_words):
+        clean_bag_of_words = []
+        words_removed = 0
+        for word in bag_of_words:
+            if word.lower() not in clean_bag_of_words:
+                clean_bag_of_words.append(word.lower())
+            else:
+                words_removed = words_removed + 1
+                if words_removed % 100000 == 0:
+                    print('Removed {} and added {} words so far'.format(words_removed, len(clean_bag_of_words)))
+        return clean_bag_of_words
 
     def get_cypher(self):
-        print('Getting cypher')
+        print('Loading corpus')
         with open(self.corpus_path) as corpus_reader:
-            corpus_data = corpus_reader.read()
+            self.bag_of_words = self.get_words_from_file_data(corpus_reader.read())
 
-        corpus_broken_down = self.break_up_paragraphs_into_sentences(self.break_up_body_into_paragraphs(corpus_data))
-
-        encrypted_corpus_pair_list = []
+        print('Loading encoded')
         with open(self.encrypted_file_path) as encrypted_reader:
-            for encrypted_line in encrypted_reader:
-                encrypted_line = encrypted_line.strip()
-                if encrypted_line == '':
-                    continue
+            self.bag_of_encrypted_words = self.get_words_from_file_data(encrypted_reader.read())
 
-                numeric_encrypted_line = self.replace_letters_with_numbers(encrypted_line)
-                found_match = False
-                for corpus_paragraph in corpus_broken_down:
-                    for corpus_sentence in corpus_paragraph:
-                        if len(corpus_sentence.strip()) <= 1:
-                            continue
+        print('Cleaning bag of words')
+        self.bag_of_words, self.bag_of_encrypted_words = self.remove_duplicate_words(self.bag_of_words), self.remove_duplicate_words(self.bag_of_encrypted_words)
 
-                        numeric_corpus_line = self.replace_letters_with_numbers(corpus_sentence)
-                        print(encrypted_line)
-                        print(corpus_sentence)
-                        print(numeric_encrypted_line)
-                        print(numeric_corpus_line)
-                        if self.compare_numeric_lines(numeric_encrypted_line, numeric_corpus_line):
-                            encrypted_corpus_pair_list.append((encrypted_line, corpus_sentence))
-                            found_match = True
-                        if found_match:
-                            break
-                    if found_match:
-                        break
-                if not found_match:
-                    print('Couldn\'t match sentence... :(')
+        print('Searching for cypher')
+        for attempts in range(26*25*24*23*22*21*20*19*18*17*16*15*14*13*12*11*10*9*8*7*6*5*4*3*2):
+            if not self.check_if_cypher_works():
+                if attempts % 25000 == 0:
+                    print('Attempt {} didn\'t work'.format(attempts))
+                self.get_next_cypher()
+            else:
+                print('Found cypher')
+                break
 
-        if len(encrypted_corpus_pair_list) > 0:
-            return self.generate_cypher_from_encrypted_corpus_pairs(encrypted_corpus_pair_list)
-        else:
-            print('Did\'t find any matches!!!!')
+        return self.current_cypher
