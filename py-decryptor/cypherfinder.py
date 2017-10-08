@@ -61,8 +61,7 @@ class CypherFinder:
         return clean_bag_of_words
 
     def remove_impossible_words_by_length(self):
-        clean_bag_of_words = []
-        lengths = []
+        clean_bag_of_words, lengths = [], []
 
         for word in self.bag_of_encrypted_words:
             if len(word) not in lengths:
@@ -86,6 +85,9 @@ class CypherFinder:
 
         print('Cleaning bag of words')
         self.bag_of_words, self.bag_of_encrypted_words = self.remove_duplicate_words(self.bag_of_words), self.remove_duplicate_words(self.bag_of_encrypted_words)
+
+        self.bag_of_words.sort(key=len)
+        self.bag_of_encrypted_words.sort(key=len)
 
         print('Removing impossible words by length')
         self.remove_impossible_words_by_length()
