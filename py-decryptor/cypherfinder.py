@@ -3,7 +3,7 @@ from decrypter import Decrypter
 
 class CypherFinder:
     def __init__(self, corpus_path, encrypted_file_path):
-        self.corpus_path, self.encrypted_file_path, self.alphabet, self.previous_cyphers, self.current_cypher, self.previous_best = corpus_path, encrypted_file_path, list('abcdefghijklmnopqrstuvwxyz'), [], {}, 0
+        self.corpus_path, self.encrypted_file_path, self.alphabet, self.previous_cyphers, self.current_cypher = corpus_path, encrypted_file_path, list('abcdefghijklmnopqrstuvwxyz'), [], {}
         for letter in self.alphabet:
             self.current_cypher[letter] = letter
 
@@ -20,19 +20,12 @@ class CypherFinder:
         self.current_cypher[letter1], self.current_cypher[letter2] = self.current_cypher[letter2], self.current_cypher[letter1]
 
     def get_next_cypher(self, words_matched):
-        print('Storing previous cypher')
-        if words_matched >= self.previous_best:
-            self.previous_cyphers.insert(0, self.current_cypher.copy())
-            self.previous_best = words_matched
-        else:
-            self.previous_cyphers.append(self.current_cypher.copy())
-            self.current_cypher = self.previous_cyphers[0]
+        self.previous_cyphers.append(self.current_cypher.copy())
 
-        print('Generating next cypher')
         while self.current_cypher in self.previous_cyphers:
-            letter1, letter2 = 'a', 'a'
+            letter1, letter2 = random.choice(self.alphabet), random.choice(self.alphabet)
             while letter1 == letter2:
-                letter1, letter2 = random.choice(self.alphabet), random.choice(self.alphabet)
+                letter2 = random.choice(self.alphabet)
             self.swap(letter1, letter2)
 
     def get_words_from_file_data(self, file_data):
@@ -59,14 +52,15 @@ class CypherFinder:
                 if current_length != len(lower_word):
                     words_of_same_length = []
                     current_length = len(lower_word)
+                    print('Moving onto words with the length of {}'.format(current_length))
                 if lower_word not in words_of_same_length:
                     temp_bag_of_words.append(lower_word)
                     words_of_same_length.append(lower_word)
                 else:
                     words_removed, number_of_duplicates, clean_count = words_removed + 1, number_of_duplicates + 1, len(temp_bag_of_words) + len(clean_bag_of_words)
-                    if words_removed % 125000 == 0:
+                    if words_removed % 250000 == 0:
                         print('Removed {} and added {} words out of {} so far. {}% complete'.format(words_removed, clean_count, total_words, ((clean_count + words_removed) / total_words) * 100))
-                    if len(temp_bag_of_words) >= 2500:
+                    if len(temp_bag_of_words) >= 5000:
                         break
             print('Copying data over')
             dirty_bag_of_words = dirty_bag_of_words[len(temp_bag_of_words) + number_of_duplicates:]
@@ -104,11 +98,11 @@ class CypherFinder:
         print('Sorting encrypted bag of words')
         self.bag_of_encrypted_words.sort(key=len)
 
-        print('Cleaning bags of words')
-        self.bag_of_words, self.bag_of_encrypted_words = self.remove_duplicate_words(self.bag_of_words), self.remove_duplicate_words(self.bag_of_encrypted_words)
-
         print('Removing impossible words by length')
         self.remove_impossible_words_by_length()
+
+        print('Cleaning bags of words')
+        self.bag_of_words, self.bag_of_encrypted_words = self.remove_duplicate_words(self.bag_of_words), self.remove_duplicate_words(self.bag_of_encrypted_words)
 
         print('Searching for cypher')
         for attempts in range(26*25*24*23*22*21*20*19*18*17*16*15*14*13*12*11*10*9*8*7*6*5*4*3*2):
