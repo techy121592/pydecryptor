@@ -1,117 +1,85 @@
-import random
-from decrypter import Decrypter
-
 class CypherFinder:
-    def __init__(self, corpus_path, encrypted_file_path):
-        self.corpus_path, self.encrypted_file_path, self.alphabet, self.previous_cyphers, self.current_cypher = corpus_path, encrypted_file_path, list('abcdefghijklmnopqrstuvwxyz'), [], {}
-        for letter in self.alphabet:
-            self.current_cypher[letter] = letter
+    def __init__(self, corpus_path):
+        self.bag_of_words = self.load_clean_bag_of_words_from_file(corpus_path)
+
+    def load_clean_bag_of_words_from_file(self, file_path):
+        with open(file_path) as file:
+            #return self.remove_possible_proper_nouns(list(map(self.remove_non_alpha, set(file.read().split()))))
+            return list(map(self.remove_non_alpha, set(file.read().split())))
+
+    def remove_possible_proper_nouns(self, bag_of_words):
+        bag_of_words_minus_proper_nouns = []
+        for word in bag_of_words:
+            if not list(word)[0]:
+                bag_of_words_minus_proper_nouns.append(word)
+        return bag_of_words_minus_proper_nouns
 
     def remove_non_alpha(self, input):
         output = ''
         for letter in list(input):
             if letter.isalpha():
                 output = output + letter
-            else:
-                output = output + ' '
         return output
 
-    def swap(self, letter1, letter2):
-        self.current_cypher[letter1], self.current_cypher[letter2] = self.current_cypher[letter2], self.current_cypher[letter1]
+    def convert_word_to_numbers(self, word):
+        key = {}
+        next_number = 0
+        list_of_numbers = []
+        for letter in list(word):
+            letter = letter.lower()
+            letter_value = key.get(letter, next_number)
+            if letter_value == next_number:
+                next_number = next_number + 1
+                key[letter] = letter_value
+            list_of_numbers.append(letter_value)
+        return list_of_numbers
 
-    def get_next_cypher(self, words_matched):
-        self.previous_cyphers.append(self.current_cypher.copy())
-
-        while self.current_cypher in self.previous_cyphers:
-            letter1, letter2 = random.choice(self.alphabet), random.choice(self.alphabet)
-            while letter1 == letter2:
-                letter2 = random.choice(self.alphabet)
-            self.swap(letter1, letter2)
-
-    def get_words_from_file_data(self, file_data):
-        return list(map(self.remove_non_alpha, file_data.split()))
-
-    def check_if_cypher_works(self):
-        decrypter, words_matched, letters_matched = Decrypter(self.current_cypher), 0, 0
-        for encrypted_word in self.bag_of_encrypted_words:
-            decrypted_word = decrypter.decrypt(self.remove_non_alpha(encrypted_word))
-            if not decrypted_word in self.bag_of_words:
-                return False, words_matched
-            else:
-                words_matched = words_matched + 1
-        return True, words_matched
-
-    def remove_duplicate_words(self, bag_of_words):
-        clean_bag_of_words, dirty_bag_of_words, words_of_same_length, words_removed, total_words, current_length = [], bag_of_words.copy(), [], 0, len(bag_of_words), 0
-
-        while len(dirty_bag_of_words) > 0:
-            temp_bag_of_words, number_of_duplicates = [], 0
-            print('Removing words from bag of words')
-            for word in dirty_bag_of_words:
-                lower_word = word.lower()
-                if current_length != len(lower_word):
-                    words_of_same_length = []
-                    current_length = len(lower_word)
-                    print('Moving onto words with the length of {}'.format(current_length))
-                if lower_word not in words_of_same_length:
-                    temp_bag_of_words.append(lower_word)
-                    words_of_same_length.append(lower_word)
-                else:
-                    words_removed, number_of_duplicates, clean_count = words_removed + 1, number_of_duplicates + 1, len(temp_bag_of_words) + len(clean_bag_of_words)
-                    if words_removed % 250000 == 0:
-                        print('Removed {} and added {} words out of {} so far. {}% complete'.format(words_removed, clean_count, total_words, ((clean_count + words_removed) / total_words) * 100))
-                    if len(temp_bag_of_words) >= 5000:
-                        break
-            print('Copying data over')
-            dirty_bag_of_words = dirty_bag_of_words[len(temp_bag_of_words) + number_of_duplicates:]
-            clean_bag_of_words.extend(temp_bag_of_words)
-            print('Done copying')
-        print('The bag of words is now {}% of it\'s original size'.format((len(clean_bag_of_words) / total_words) * 100))
-        return clean_bag_of_words
-
-    def remove_impossible_words_by_length(self):
-        clean_bag_of_words, lengths = [], []
-
-        for word in self.bag_of_encrypted_words:
-            if len(word) not in lengths:
-                lengths.append(len(word))
-
+    def get_possible_words(self, encrypted_word):
+        numeric_encrypted_word, possible_words = self.convert_word_to_numbers(encrypted_word), []
         for word in self.bag_of_words:
-            if len(word) in lengths:
-                clean_bag_of_words.append(word)
+            if self.convert_word_to_numbers(word) == numeric_encrypted_word:
+                possible_words.append(word)
+        return possible_words
 
-        print('Removed {} words by length'.format(len(self.bag_of_words) - len(clean_bag_of_words)))
-        self.bag_of_words = clean_bag_of_words
+    def get_possible_word_sets(self, encrypted_words):
+        word_sets = {}
+        for encrypted_word in encrypted_words:
+            word_sets[encrypted_word] = self.get_possible_words(encrypted_word)
+        return word_sets
 
-    def get_cypher(self):
-        print('Loading corpus')
-        with open(self.corpus_path) as corpus_reader:
-            self.bag_of_words = self.get_words_from_file_data(corpus_reader.read())
+    def try_to_add_letter_pair_to_cypher(self, encrypted_letter, letter, cypher):
+        new_cypher = cypher.copy()
+        if cypher.get(encrypted_letter, letter) == letter:
+            new_cypher[encrypted_letter] = letter
+            return True, new_cypher
+        else:
+            return False, {}
 
-        print('Loading encoded')
-        with open(self.encrypted_file_path) as encrypted_reader:
-            self.bag_of_encrypted_words = self.get_words_from_file_data(encrypted_reader.read())
+    def try_to_add_word_pair_to_cypher(self, encrypted_word, possible_word, cypher):
+        new_cypher = cypher.copy()
+        for encrypted_letter, letter in zip(list(encrypted_word), list(possible_word)):
+            added_letter_to_cypher, new_cypher = self.try_to_add_letter_pair_to_cypher(encrypted_letter.lower(), letter.lower(), new_cypher)
+            if not added_letter_to_cypher:
+                return False, {}
+        return True, new_cypher
 
-        print('Sorting bag of words')
-        self.bag_of_words.sort(key=len)
+    def look_for_cypher(self, list_of_encrypted_words_with_possible_words_param, cypher_param):
+        encrypted_word, found_cypher, list_of_encrypted_words_with_possible_words, cypher = next(iter(list_of_encrypted_words_with_possible_words_param)), False, list_of_encrypted_words_with_possible_words_param.copy(), cypher_param.copy()
+        possible_words = list_of_encrypted_words_with_possible_words[encrypted_word]
+        del list_of_encrypted_words_with_possible_words[encrypted_word]
 
-        print('Sorting encrypted bag of words')
-        self.bag_of_encrypted_words.sort(key=len)
+        for possible_word in possible_words:
+            added_word, new_cypher = self.try_to_add_word_pair_to_cypher(encrypted_word, possible_word, cypher)
+            if added_word and len(list_of_encrypted_words_with_possible_words) >= 1:
+                print('Added appropriate keys for {} = {}'.format(encrypted_word, possible_word))
+                found_cypher, new_cypher = self.look_for_cypher(list_of_encrypted_words_with_possible_words, new_cypher)
+                if found_cypher:
+                    return True, new_cypher
+            elif added_word:
+                print('Current cypher worked')
+                return True, new_cypher
+        print('Current cypher failed')
+        return False, {}
 
-        print('Removing impossible words by length')
-        self.remove_impossible_words_by_length()
-
-        print('Cleaning bags of words')
-        self.bag_of_words, self.bag_of_encrypted_words = self.remove_duplicate_words(self.bag_of_words), self.remove_duplicate_words(self.bag_of_encrypted_words)
-
-        print('Searching for cypher')
-        for attempts in range(26*25*24*23*22*21*20*19*18*17*16*15*14*13*12*11*10*9*8*7*6*5*4*3*2):
-            cypher_works, words_matched = self.check_if_cypher_works()
-            if not cypher_works:
-                print('Attempt {} didn\'t work'.format(attempts))
-                self.get_next_cypher(words_matched)
-            else:
-                print('Found cypher')
-                break
-
-        return self.current_cypher
+    def get_cypher(self, encrypted_file_path):
+        return self.look_for_cypher(self.get_possible_word_sets(self.load_clean_bag_of_words_from_file(encrypted_file_path)), {})

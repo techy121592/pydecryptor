@@ -5,7 +5,10 @@ class Decrypter:
 
     def swap_letters(self, letter):
         try:
-            return self.cypher[letter.lower()]
+            if letter.isupper():
+                return self.cypher[letter.lower()].upper()
+            else:
+                return self.cypher[letter]
         except:
             return letter
 
