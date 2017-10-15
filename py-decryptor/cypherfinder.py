@@ -17,8 +17,8 @@
 from collections import OrderedDict
 
 class CypherFinder:
-    def __init__(self, corpus_path):
-        self.bag_of_words = self.load_clean_bag_of_words_from_file(corpus_path)
+    def __init__(self, corpus_path, verbose):
+        self.bag_of_words, self.verbose = self.load_clean_bag_of_words_from_file(corpus_path), verbose
 
     def load_clean_bag_of_words_from_file(self, file_path):
         with open(file_path) as file:
@@ -84,16 +84,42 @@ class CypherFinder:
         for possible_word in possible_words:
             added_word, new_cypher = self.try_to_add_word_pair_to_cypher(encrypted_word, possible_word, cypher)
             if added_word and len(list_of_encrypted_words_with_possible_words) >= 1:
-                print('Added appropriate keys for {} = {}'.format(encrypted_word, possible_word))
+                if self.verbose:
+                    print('Added appropriate keys for {} = {}'.format(encrypted_word, possible_word))
                 return self.look_for_cypher(list_of_encrypted_words_with_possible_words, new_cypher)
             elif added_word:
-                print('Current cypher worked')
+                if self.verbose:
+                    print('Current cypher worked')
                 return True, new_cypher
-        else:
-            print('Skipping {}, because it had to possible known words.'.format(encrypted_word))
+
+        if len(possible_words) == 0:
+            if self.verbose:
+                print('Skipping {}, because it had to possible known words.'.format(encrypted_word))
             return self.look_for_cypher(list_of_encrypted_words_with_possible_words, cypher)
-        print('Current cypher failed')
-        return False, {}
+        else:
+            print('Current cypher failed')
+            return False, {}
 
     def get_cypher(self, encrypted_file_path):
-        return self.look_for_cypher(self.get_possible_word_sets(self.load_clean_bag_of_words_from_file(encrypted_file_path)), {})
+        got_cypher, cypher = self.look_for_cypher(self.get_possible_word_sets(self.load_clean_bag_of_words_from_file(encrypted_file_path)), {})
+
+        if got_cypher and len(cypher.items()) < 26:
+            free_letters, free_keys = [], []
+
+            for letter in list('abcdefghijklmnopqrstuvwxyz'):
+                found_letter, found_key = False, False
+                for _, key in enumerate(cypher):
+                    found_letter, found_key = letter == cypher[key] or found_letter, letter == key or found_key
+                    if found_letter and found_key:
+                        break
+                if not found_letter:
+                    free_letters.append(letter)
+                if not found_key:
+                    free_keys.append(letter)
+
+
+
+            for key, letter in zip(free_keys, free_letters):
+                cypher[key] = letter
+
+        return got_cypher, cypher
