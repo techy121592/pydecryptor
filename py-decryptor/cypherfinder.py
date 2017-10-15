@@ -14,21 +14,15 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.   #
 #####################################################################################
 
+from collections import OrderedDict
+
 class CypherFinder:
     def __init__(self, corpus_path):
         self.bag_of_words = self.load_clean_bag_of_words_from_file(corpus_path)
 
     def load_clean_bag_of_words_from_file(self, file_path):
         with open(file_path) as file:
-            #return self.remove_possible_proper_nouns(list(map(self.remove_non_alpha, set(file.read().split()))))
             return list(map(self.remove_non_alpha, set(file.read().split())))
-
-    def remove_possible_proper_nouns(self, bag_of_words):
-        bag_of_words_minus_proper_nouns = []
-        for word in bag_of_words:
-            if not list(word)[0]:
-                bag_of_words_minus_proper_nouns.append(word)
-        return bag_of_words_minus_proper_nouns
 
     def remove_non_alpha(self, input):
         output = ''
@@ -61,7 +55,10 @@ class CypherFinder:
         word_sets = {}
         for encrypted_word in encrypted_words:
             word_sets[encrypted_word] = self.get_possible_words(encrypted_word)
-        return word_sets
+
+        ordered_word_sets = sorted(word_sets.items(), key=lambda word_set: (len(word_set[1])))
+        
+        return OrderedDict(ordered_word_sets)
 
     def try_to_add_letter_pair_to_cypher(self, encrypted_letter, letter, cypher):
         new_cypher = cypher.copy()
@@ -88,12 +85,13 @@ class CypherFinder:
             added_word, new_cypher = self.try_to_add_word_pair_to_cypher(encrypted_word, possible_word, cypher)
             if added_word and len(list_of_encrypted_words_with_possible_words) >= 1:
                 print('Added appropriate keys for {} = {}'.format(encrypted_word, possible_word))
-                found_cypher, new_cypher = self.look_for_cypher(list_of_encrypted_words_with_possible_words, new_cypher)
-                if found_cypher:
-                    return True, new_cypher
+                return self.look_for_cypher(list_of_encrypted_words_with_possible_words, new_cypher)
             elif added_word:
                 print('Current cypher worked')
                 return True, new_cypher
+        else:
+            print('Skipping {}, because it had to possible known words.'.format(encrypted_word))
+            return self.look_for_cypher(list_of_encrypted_words_with_possible_words, cypher)
         print('Current cypher failed')
         return False, {}
 

@@ -29,11 +29,10 @@ def find_and_print_cypher_and_decrypted_lines(corpus_path, encrypted_path, print
         if print_decrypted or verbose:
             with open(encrypted_path) as encrypted_file:
                 for line in encrypted_file:
-                    print(line)
-                    print(decrypter.decrypt(line))
+                    print('{} = {}'.format(line.replace('\n', ''), decrypter.decrypt(line)))
 
         if print_cypher or verbose:
-            for _, v in enumerate(cypher):
+            for _, v in enumerate(sorted(cypher)):
                 print('{} = {}'.format(v, cypher[v]))
     else:
         print('Could not find cypher')
